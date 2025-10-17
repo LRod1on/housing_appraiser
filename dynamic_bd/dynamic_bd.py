@@ -165,23 +165,20 @@ async def delete_house(user_id: int) -> bool:
             else:
                 return False
 
-async def add_house_data(file_path: str) -> bool:
+async def write_house_data(file_path: str) -> bool:
     async with new_session() as session:
         async with session.begin():
             data = pd.read_csv('data.csv')
-            for i in data:
-                house = insert(Housing).values(
-
-                )
+            # тут будут дополнения
+    return False
 
 async def start_database() -> None:
     await delete_tables()
     await create_tables()
     await add_housing()
-    await add_house_data("inp.csv")
     await add_user()
-    
-    async with open(file_path)
+    await write_house_data("inp.csv")
+
 
     '''
     # тащим все id
