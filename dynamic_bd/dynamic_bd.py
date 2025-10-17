@@ -4,6 +4,7 @@ from sqlalchemy import Column, Integer, String, Float, Date, JSON, ARRAY, select
 import json
 import asyncio
 import os
+import pandas as pd
 from dotenv import load_dotenv
 
 '''
@@ -14,10 +15,9 @@ path = "postgresql+asyncpg://" + os.getenv("DB_USER") + ":" + os.getenv("DB_PASS
        + os.getenv("DB_HOST") + ":" + os.getenv("DB_PORT") + "/" + os.getenv("DB_NAME")
 '''
 path = "postgresql+asyncpg://user:password@localhost:5432/housing_db"
-engine = create_async_engine(url=path,
-                             echo=True)
+engine = create_async_engine(url=path, echo=True)
 
-# создаем менеджер асинх сессий (сессия, хаха, сессия...)
+# создаем менеджер асинх сессий
 new_session = async_sessionmaker(engine, expire_on_commit=False)
 
 # базовый класс для таблички
@@ -27,8 +27,8 @@ class Base(DeclarativeBase):
 class Housing(Base):
     __tablename__ = 'housing_db'
 
-# база данных с запросом пользователя, получаемым из формы
 class ClientData(Base):
+    '''таблица с запросом пользователя, получаемым из формы'''
     __tablename__ = 'client_data'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -38,8 +38,8 @@ class ClientData(Base):
 
     house = relationship("Housing", backref="clients")
 
-# база данных со значениями для каждого дома
 class Housing(Base):
+    '''таблица со значениями для каждого дома'''
     __tablename__ = 'housing_db'
 
     # Явное объявление всех колонок, как в примере с User
@@ -121,6 +121,7 @@ async def add_housing(
             return new_house.id
 
 async def get_client(tag: int) -> ClientData:
+    '''Получение данынх о клиенте по id'''
     async with new_session() as session:
         result = await session.execute(select(ClientData).filter_by(id = tag))
         user = result.scalar_one_or_none()
@@ -128,6 +129,7 @@ async def get_client(tag: int) -> ClientData:
     return user
 
 async def get_house(tag: int) -> Housing:
+    '''Получение данных о доме по id'''
     async with new_session() as session:
         result = await session.execute(select(Housing).filter_by(id = tag))
         house = result.scalar_one_or_none()
@@ -135,9 +137,8 @@ async def get_house(tag: int) -> Housing:
     return house
 
 
-# удаление пользователя (ну сдох чувак, удалился тг). Вообще не знаю надо ли нам это, но пусть будет
 async def delete_user(user_id: int) -> bool:
-
+    '''Удаление данных о пользователе'''
     async with new_session() as session:
         async with session.begin():
             user = await get_client(user_id)
@@ -151,7 +152,7 @@ async def delete_user(user_id: int) -> bool:
                 return False
             
 async def delete_house(user_id: int) -> bool:
-
+    '''Удаление данных о здании'''
     async with new_session() as session:
         async with session.begin():
             user = await get_house(user_id)
@@ -163,56 +164,24 @@ async def delete_house(user_id: int) -> bool:
                 return True
             else:
                 return False
-            
-'''
-# функция для обновления данных пользователя
-async def update_user(user_id: int, user_dict: dict) -> None:
+
+async def add_house_data(file_path: str) -> bool:
     async with new_session() as session:
         async with session.begin():
-            result = await session.execute(select(User).filter_by(id=user_id))
-            user = result.scalar_one_or_none()
+            data = pd.read_csv('data.csv')
+            for i in data:
+                house = insert(Housing).values(
 
-            for key, value in user_dict.items():
-                if key == 'history_req' or key == 'history_ans' or key == 'history_req_stat':
-                    ar = user.history_req.copy()
-                    for el in value:
-                        ar.append(el)
-                    setattr(user, key, ar)
-                else:
-                    setattr(user, key, value)
-
-            await session.commit()
-
-# SELECT *колонка* IN *таблица*
-async def get_column(table_name: str, column_name: str) -> list:
-    async with new_session() as session:
-        # Определим соот. переданного названия таблицы и её модели внутри БД
-        table_mapping = {
-            'users': User,
-            'salary': Salary,
-            'experience': Experience,
-            'towns': Towns,
-            'cities': Cities,
-            'employment': Employment,
-            'sort': Sort,
-        }
-
-        model = table_mapping.get(table_name)
-
-        # Запрос в таблицу model по column_name
-        query = select(getattr(model, column_name))
-
-        result = await session.execute(query)
-
-        return [row for row in result.scalars().all()]
-'''
+                )
 
 async def start_database() -> None:
     await delete_tables()
     await create_tables()
     await add_housing()
-    #await add_cities("inp.txt")
+    await add_house_data("inp.csv")
     await add_user()
+    
+    async with open(file_path)
 
     '''
     # тащим все id
